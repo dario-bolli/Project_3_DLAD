@@ -33,4 +33,11 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
         config['num_fg_sample'] maximum allowed number of foreground samples
         config['bg_hard_ratio'] background hard difficulty ratio (#hard samples/ #background samples)
     '''
+    IoU = get_iou(pred, target)
+    assigned_targets = np.zeros((pred.shape))
+    for i in range(pred[0]):
+        ind = np.argmax(IoU[i,:])
+        assigned_targets[i,:] = target(ind)
+        assigned_IoU = IoU[i,ind]
+
     pass

@@ -54,6 +54,8 @@ class CheckTest():
 									recall[:(i+1)].mean()*100, recorded_recall[:(i+1)].mean()*100,
 									duration[:(i+1)].mean()*1000, recorded_duration[:(i+1)].mean()*1000))
 		# Check results
+		print("recall[i]", recall.mean())
+		print("recorded_recall", recorded_recall.mean())
 		if not warmup:
 			self.display_test_result(np.abs(recall.mean() - recorded_recall.mean()) <= ERROR_TRESHOLD,
 									 duration.mean() > DURATION_THRESHOLD*recorded_duration.mean())
@@ -117,6 +119,7 @@ class CheckTest():
 		)
 
 if __name__=='__main__':
+	print("Test starting")
 	config = yaml.safe_load(open(args.config_path, 'r'))
 	assert(os.path.exists(args.recordings_dir))
 	check = CheckTest(config, args.recordings_dir)
