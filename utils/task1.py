@@ -1,4 +1,6 @@
 import numpy as np
+import shapely
+from shapely.geometry import box, Polygon
 
 
 def z_rotation(theta):
@@ -77,6 +79,30 @@ def get_volume(box):
         #volume[i] = (np.linalg.norm(u,2)+1)*(np.linalg.norm(v,2)+1)*(np.linalg.norm(w,2)+1)
         volume[i] = np.linalg.norm(u,2)*np.linalg.norm(v,2)*np.linalg.norm(w,2)
     return volume
+def get_intersection_area(corners_pred, corners_target):
+    '''
+    #prediction's box
+    max_corner_p_x = np.argmax(corners_pred[:,0])
+    min_corner_p_x = np.argmin(corners_pred[:,0])
+    max_corner_p_y = np.argmax(corners_pred[:,1])
+    min_corner_p_y = np.argmin(corners_pred[:,1])
+    #target's box
+    max_corner_t_x = np.argmax(corners_target[:,0])
+    min_corner_t_x = np.argmin(corners_target[:,0])
+    max_corner_t_y = np.argmax(corners_target[:,1])
+    min_corner_t_y = np.argmin(corners_target[:,1])
+
+    box_p = shapely.geometry.box(min_corner_p_x, min_corner_p_y, max_corner_p_x, max_corner_p_y)
+    box_t = shapely.geometry.box(min_corner_t_x, min_corner_t_y, max_corner_t_x, max_corner_t_y)
+    '''
+    
+    box_p = shapely.geometry.Polygon([tuple(corners_pred[0,0:2]), tuple(corners_pred[1,0:2]), tuple(corners_pred[2,:]), tuple(corners_pred[3,:])])
+    box_t = shapely.geometry.Polygon([tuple(corners_target[0,:]), tuple(corners_target[1,:]), tuple(corners_target[2,:]), tuple(corners_target[3,:])])
+    if box_p.intersects(box_t):
+        inter_area = box_p.intersection(box_t).area
+    else:
+        inter_area = 0
+    return inter_area
 
 def get_iou(pred, target):
     '''
@@ -97,47 +123,37 @@ def get_iou(pred, target):
     for i in range(pred.shape[0]):
         for j in range(target.shape[0]):
             #Intersection
-            
-            max_corner_x = np.argmax(corners_pred[i,:,0])
-            min_corner_x = np.argmin(corners_pred[i,:,0])
-            max_corner_y = np.argmax(corners_pred[i,:,1])
-            min_corner_y = np.argmin(corners_pred[i,:,1])
-            
-            max_target_x = np.argmax(corners_target[j,:,0])
-            min_target_x = np.argmin(corners_target[j,:,0])
-            max_target_y = np.argmax(corners_target[j,:,1])
-            min_target_y = np.argmin(corners_target[j,:,1])
-            
+            '''
             x1 = max(corners_pred[i,min_corner_x,0], corners_target[j,min_target_x,0]) #corner 6, x-coordinate
             x2 = min(corners_pred[i,max_corner_x,0], corners_target[j,max_target_x,0])
             y1 = max(corners_pred[i,min_corner_y,1], corners_target[j,min_target_y,1]) #corner 7, y-coordinate
             y2 = min(corners_pred[i,max_corner_y,1], corners_target[j,max_target_y,1])
+            '''
             z1 = max(corners_pred[i,4,2], corners_target[j,4,2]) #corner 4, z-coordinate
             z2 = min(corners_pred[i,2,2], corners_target[j,2,2])
-            
             # compute the volume of intersection
             #interVolume = max(0, x2 - x1 + 1)*max(0, y2 - y1 + 1)*max(0, z2 - z1 + 1)
-            
-            interVolume = max(0, x2 - x1)*max(0, y2 - y1)*max(0, z2 - z1)
+            interArea = get_intersection_area(corners_pred[i, 0:4,0:2], corners_target[j, 0:4,0:2])
+            interVolume = interArea*max(0, z2 - z1)
             # compute the volume of union
             unionVolume = Vol_pred[i] + Vol_target[j] - interVolume
             
             #intersection over union
             iou[i,j] = interVolume/unionVolume
+
+            '''
+            if i == pred.shape[0]-1:
+                print("corners_pred[i, 0:4,0]", corners_pred[i, 0:4,0])
+                print("corners_pred[i, 0:4,1]", corners_pred[i, 0:4,1])
+                print("yaw rotation", pred[i,6])
+                print("corners_target[i, 0:4,0]", corners_target[j, 0:4,0])
+                print("corners_target[i, 0:4,1]", corners_target[j, 0:4,1])
+                print("interArea", interArea)
+                '''
     return iou
 
 
-'''
-def assigned_target(pred,target):
-    IoU = get_iou(pred, target)
-    assigned_targets = np.zeros((pred.shape))
-    assigned_iou = np.zeros((pred.shape[0]))
-    for i in range(pred.shape[0]):
-        ind = np.argmax(IoU[i,:])
-        assigned_targets[i,:] = target(ind)
-        assigned_IoU = IoU[i,ind]
-    return assigned_targets, assigned_IoU
-'''
+
 def compute_recall(pred, target, threshold):
     '''
     Task 1
@@ -155,14 +171,17 @@ def compute_recall(pred, target, threshold):
     #TN = np.zeros(1)
     #FP = np.zeros(1)
     FN = np.zeros(1)
-
+    assigned_IoU = np.zeros(target.shape[0])
     for j in range(target.shape[0]):
-        detected = False
-        for i in range(pred.shape[0]):
-            if IoU[i,j] >= threshold:
-                TP += 1
-                detected = True
-        if detected == False:
+        ind = np.argmax(IoU[:,j])
+        assigned_IoU[j] = IoU[ind,j]
+        if assigned_IoU[j] >= threshold:
+            TP += 1
+        elif all(i<threshold for i in IoU[:,j]):
             FN += 1
+        else:
+            print("not FN not TP")
+        print("FN, TP", FN, TP)
+        
     recall = TP/(TP + FN)
     return recall
