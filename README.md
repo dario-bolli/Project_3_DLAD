@@ -9,7 +9,7 @@ If not already done, please follow [aws/SETUP.md](aws/SETUP.md) to setup your AW
 You can launch a development AWS EC2 CPU instance using:
 
 ```shell script
-python aws_start_instance.py --mode devel
+python3 aws_start_instance.py --mode devel
 ```
 
 It'll have the requirements installed and dataset available. Your local code is uploaded during the initialization as
