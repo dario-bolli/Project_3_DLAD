@@ -12,8 +12,7 @@ def z_rotation(theta):
 
     Rot = np.array([[c, -s, 0],
                      [s, c, 0],
-                     [0, 0, 1]]) 
-    #print("rot:",Rot)             
+                     [0, 0, 1]])          
     return Rot
 
 def label2corners(label):
@@ -49,13 +48,17 @@ def label2corners(label):
 
         # Corners location 3D in velodyne frame
         '''
-        corners_x = [x+width/2, x-width/2, x-width/2, x+width/2,x+width/2, x-width/2, x-width/2, x+width/2]
-        corners_y = [y+length/2, y+length/2, y-length/2, y-length/2, y+length/2, y+length/2, y-length/2, y-length/2]
-        corners_z = [z+height, z+height, z+height, z+height, z, z, z, z]
-        '''
         corners_x = [width/2,- width/2, -width/2, width/2, width/2, -width/2, -width/2, width/2]
         corners_y = [length/2, length/2, -length/2, -length/2, length/2, length/2, -length/2, -length/2]
         corners_z = [height, height, height, height, 0, 0, 0, 0]
+
+        corners_x = [length/2, -length/2, -length/2, length/2, length/2, -length/2, -length/2, length/2]
+        corners_y = [width/2, width/2, -width/2, -width/2, width/2, width/2, -width/2, -width/2]
+        corners_z = [height, height, height, height, 0, 0, 0, 0]
+        '''
+        corners_x = [height/2, -height/2, -height/2, height/2, height/2, -height/2, -height/2, height/2]
+        corners_y = [width/2, width/2, -width/2, -width/2, width/2, width/2, -width/2, -width/2]
+        corners_z = [length, length, length, length, 0, 0, 0, 0]
         #Rotation around z-axis
         Rot = z_rotation(label[i,6])
 
@@ -77,8 +80,9 @@ def get_volume(box):
         v = corners[i,0,:] - corners[i,3,:]
         w = corners[i,0,:] - corners[i,4,:]
         #volume[i] = (np.linalg.norm(u,2)+1)*(np.linalg.norm(v,2)+1)*(np.linalg.norm(w,2)+1)
-        volume[i] = np.linalg.norm(u,2)*np.linalg.norm(v,2)*np.linalg.norm(w,2)
+        volume[i] = np.linalg.norm(u)*np.linalg.norm(v)*np.linalg.norm(w)
     return volume
+
 def get_intersection_area(corners_pred, corners_target):
     '''
     #prediction's box
@@ -104,7 +108,7 @@ def get_intersection_area(corners_pred, corners_target):
         inter_area = 0
     return inter_area
 
-def get_iou(pred, target):
+def get_iou(pred, target, num):
     '''
     Task 1
     input
@@ -122,39 +126,29 @@ def get_iou(pred, target):
     iou = np.zeros((pred.shape[0],target.shape[0]))
     for i in range(pred.shape[0]):
         for j in range(target.shape[0]):
-            #Intersection
-            '''
-            x1 = max(corners_pred[i,min_corner_x,0], corners_target[j,min_target_x,0]) #corner 6, x-coordinate
-            x2 = min(corners_pred[i,max_corner_x,0], corners_target[j,max_target_x,0])
-            y1 = max(corners_pred[i,min_corner_y,1], corners_target[j,min_target_y,1]) #corner 7, y-coordinate
-            y2 = min(corners_pred[i,max_corner_y,1], corners_target[j,max_target_y,1])
-            '''
-            z1 = max(corners_pred[i,4,2], corners_target[j,4,2]) #corner 4, z-coordinate
-            z2 = min(corners_pred[i,2,2], corners_target[j,2,2])
+            #Height of the intersection boxe
+            max_pred = max(corners_pred[i,4,2], corners_pred[i,2,2])
+            max_target = max(corners_target[j,4,2], corners_target[j,2,2])
+            min_pred = min(corners_pred[i,4,2], corners_pred[i,2,2])
+            min_target = min(corners_target[j,4,2], corners_target[j,2,2])
+            z1 = max(min_pred, min_target)
+            z2 = min(max_pred, max_target)
+            #print("z1", corners_pred[i,2,2], corners_target[j,2,2]) #should be 0
             # compute the volume of intersection
             #interVolume = max(0, x2 - x1 + 1)*max(0, y2 - y1 + 1)*max(0, z2 - z1 + 1)
-            interArea = get_intersection_area(corners_pred[i, 0:4,0:2], corners_target[j, 0:4,0:2])
-            interVolume = interArea*max(0, z2 - z1)
+            interArea = np.float16(get_intersection_area(corners_pred[i, 0:4,0:2], corners_target[j, 0:4,0:2]))
+            interVolume = np.float16(interArea*max(0, z2 - z1))
             # compute the volume of union
-            unionVolume = Vol_pred[i] + Vol_target[j] - interVolume
-            
+            unionVolume = np.float16(Vol_pred[i] + Vol_target[j] - interVolume)
+
             #intersection over union
             iou[i,j] = interVolume/unionVolume
-
-            '''
-            if i == pred.shape[0]-1:
-                print("corners_pred[i, 0:4,0]", corners_pred[i, 0:4,0])
-                print("corners_pred[i, 0:4,1]", corners_pred[i, 0:4,1])
-                print("yaw rotation", pred[i,6])
-                print("corners_target[i, 0:4,0]", corners_target[j, 0:4,0])
-                print("corners_target[i, 0:4,1]", corners_target[j, 0:4,1])
-                print("interArea", interArea)
-                '''
+            
     return iou
 
 
 
-def compute_recall(pred, target, threshold):
+def compute_recall(pred, target, threshold, num):
     '''
     Task 1
     input
@@ -164,24 +158,23 @@ def compute_recall(pred, target, threshold):
     output
         recall (float) recall for the scene
     '''
-    IoU = get_iou(pred, target)
+    
+    IoU = get_iou(pred, target, num)
     #assigned_targets, assigned_IoU = assigned_target(pred,target)
 
     TP = np.zeros(1)
-    #TN = np.zeros(1)
-    #FP = np.zeros(1)
     FN = np.zeros(1)
     assigned_IoU = np.zeros(target.shape[0])
     for j in range(target.shape[0]):
         ind = np.argmax(IoU[:,j])
         assigned_IoU[j] = IoU[ind,j]
-        if assigned_IoU[j] >= threshold:
+        if assigned_IoU[j] >= threshold:    #-0.0001
             TP += 1
         elif all(i<threshold for i in IoU[:,j]):
             FN += 1
-        else:
-            print("not FN not TP")
-        print("FN, TP", FN, TP)
+        if num == 88:
+            print("FN, TP", FN, TP)
+            print("assigned_IoU[j]", assigned_IoU[j])
         
     recall = TP/(TP + FN)
     return recall
