@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 class RegressionLoss(nn.Module):
     def __init__(self, config):
@@ -22,7 +23,27 @@ class RegressionLoss(nn.Module):
         useful config hyperparameters
             self.config['positive_reg_lb'] lower bound for positive samples
         '''
-        pass
+        index = []
+        print("pred_size: ", pred.shape)
+        print("target_size: ", target.shape)
+        print("iou_size: ", iou.shape)
+        for i in range(pred.shape[0]):
+            #positive samples
+            if iou[i] < self.config['positive_reg_lb']:  #self.config['positive_reg_lb'] instead of 0.55
+                index = np.append(index,i)
+        print("index",index.shape)
+        if index.size == 0:
+            loss = 0
+        else:
+            index = [int(i) for i in index]     #convert indices to int (only type accepted in delete), but why is it not int at first?
+            filtered_pred= np.delete(pred,index,axis=0)#filtered_pred.append(pred[i,:])
+            filtered_target = np.delete(target,index,axis=0)#filtered_target.append(target[i,:]) 
+            #contribution of size parameters (3 times h,w,l in the average)
+            filtered_pred = torch.hstack((filtered_pred, filtered_pred[:,3:6], filtered_pred[:,3:6]))
+            filtered_target = torch.hstack((filtered_target, filtered_target[:,3:6],filtered_target[:,3:6]))      
+            print("filtered_pred shape", filtered_pred.shape)
+            loss = self.loss(filtered_pred, filtered_target)
+        return loss
 
 class ClassificationLoss(nn.Module):
     def __init__(self, config):
@@ -44,4 +65,27 @@ class ClassificationLoss(nn.Module):
             self.config['positive_cls_lb'] lower bound for positive samples
             self.config['negative_cls_ub'] upper bound for negative samples
         '''
-        pass
+        
+        index_p = []
+        index_n = []
+        print("pred_size: ", pred.shape)
+        print("target_size: ", target.shape)
+        print("iou_size: ", iou.shape)
+        for i in range(pred.shape[0]):
+            #positive samples
+            if iou[i] >= self.config['positive_cls_lb']:  
+                index_p = np.append(index_p,i)
+            elif iou[i] >= self.config['negative_cls_ub']:
+                index_n = np.append(index_n,i)
+        print("index",index_p.shape, index_n.shape)
+        index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete), but why is it not int at first?
+        index_n = [int(i) for i in index_n]
+        filtered_pred_p= np.delete(pred,index_p,axis=0)
+        filtered_target_p = np.delete(target,index_p,axis=0)
+
+        filtered_pred_n= np.delete(pred,index_n,axis=0)
+        filtered_target_n = np.delete(target,index_n,axis=0)
+
+        #How does BCELoss work with positive and negative samples
+        loss = self.loss(filtered_pred, filtered_target)
+        return loss
