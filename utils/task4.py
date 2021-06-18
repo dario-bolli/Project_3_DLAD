@@ -87,5 +87,5 @@ class ClassificationLoss(nn.Module):
         filtered_target_n = np.delete(target,index_n,axis=0)
 
         #How does BCELoss work with positive and negative samples
-        loss = self.loss(filtered_pred, filtered_target)
+        loss = self.loss(filtered_pred_p, filtered_target_p)
         return loss
