@@ -1,7 +1,6 @@
 import numpy as np
-import random
 import time
-import numba as nb
+from numba import njit
 
 #==================================#
 # Rotation Matrix
@@ -40,7 +39,7 @@ def label2corners(label, config):
 
     '''
     corners = np.zeros((label.shape[0],8,3))
-    start = time.time()
+    #start = time.time()
     for i in range(label.shape[0]):
         # extract the dimensions of the box
         height = label[i,3] + config['delta']
@@ -69,87 +68,32 @@ def label2corners(label, config):
         box_dim[2,:] += z
         # Dimensions of box_dim: 3 x 8 i.e. rows are (x,y,z) and columns are the corners
         corners[i,:,:] = np.transpose(box_dim) 
-    end = time.time()
-    print("time in the label2corners function is " , end-start)
+    #end = time.time()
+    #print("time in the label2corners function is " , end-start)
     return corners 
 
+#@njit
+def points_in_box(projection, norm_u, norm_v, norm_w):
+    '''
+    input
+        xyz (N,3) point coordinates in rectified reference frame
+        box (7,) 3d bounding box label (x,y,z,h,w,l,ry)
+    output
+        flag (N,) bool vector: true if point is in bounding box
+    '''
+    flag = (projection[:,2] <= norm_w) & (projection[:,0] <= norm_u) & (projection[:,1] <= norm_v)
+    return flag
 
-#@nb.njit(cache = True, nogil = True)
+
+
+#@njit
 def indexInBox(directions, center2point, norm_u, norm_v, norm_w):
-    #projection = np.absolute(np.matmul(center2point,directions))
-        #print(projection.shape)
-    
+ 
     projection = np.absolute(center2point@directions)   
-    #start = time.time()
-    cond1 = np.flatnonzero(projection[:,2] <= norm_w )
-    end = time.time()
-    #print("cond1 time", end -start)
-    cond2 = np.flatnonzero(projection[cond1,0] <= norm_u )
-    xyz_indic = np.flatnonzero(projection[cond2,1] <= norm_v )
-
+    xyz_indic = np.flatnonzero(points_in_box(projection, norm_u, norm_v, norm_w))
     return xyz_indic
 
-# @nb.njit
-# def loopBoxes(corners,xyz, pred, feat, max_pointsROI):
-#     pooled_xyz = []
-#     valid_pred = []
-#     pooled_feat = []
-#     # u =  corners[:,5,:] - corners[:,6,:]
-#     # norm_u = np.linalg.norm(u,axis=1)
-#     # u = u/norm_u[:,None]
-#     # v = (corners[:,7,:] - corners[:,6,:])
-#     # norm_v = np.linalg.norm(v,axis = 1)
-#     # v = v/norm_v[:,None]
-#     # w = (corners[:,2,:] - corners[:,6,:])
-#     # norm_w = np.linalg.norm(w,axis=1)
-#     # w = w/norm_w[:,None]
-   
-#     for i in range(corners.shape[0]):
-#         u = corners[i,5,:] - corners[i,6,:]
-#         norm_u = np.linalg.norm(u)
-#         u = u/norm_u
-#         v = corners[i,7,:] - corners[i,6,:]
-#         norm_v = np.linalg.norm(v)
-#         v = v/norm_v
-#         w = corners[i,2,:] - corners[i,6,:]
-#         norm_w = np.linalg.norm(w)
-
-#         center2point = xyz - corners[i,6,:]
-
-#         directions = np.stack((u, v, w), axis = 1)
-    
-#         #start = time.time()
-       
-#         # projection = np.absolute(center2point@directions)   
-#         # cond1 = np.flatnonzero(projection[:,0] <= norm_u )
-#         # cond2 = np.flatnonzero(projection[cond1,1] <= norm_v )
-#         # xyz_indic = np.flatnonzero(projection[cond2,2] <= norm_w )
-#         xyz_indic = indexInBox(directions, center2point, norm_u, norm_v, norm_w)
-#        # end = time.time()
-        
-#         # boxPoints = np.zeros((max_pointsROI,3))
-#         # boxFeat= np.zeros((max_pointsROI,feat.shape[1]))
-       
-      
-#         if 1 < len(xyz_indic) < max_pointsROI:
-#             idx = np.random.choice(xyz_indic, size=max_pointsROI, replace=True)
-#             boxPoints = xyz[idx,:]
-#             boxFeat = feat[idx,:]
-    
-
-#         elif len(xyz_indic) > max_pointsROI:
-#             idx = np.random.choice(xyz_indic, size=max_pointsROI, replace=False)
-#             boxPoints = xyz[idx,:]
-#             boxFeat = feat[idx,:]
-        
-#         else: # just one point in this box, discard
-#             continue
-#         pooled_xyz.append(boxPoints)
-#         pooled_feat.append(boxFeat)
-#         valid_pred.append(pred[i,:])
-#     return pooled_xyz, pooled_feat, valid_pred
-
-
+#@njit
 def roi_pool(pred, xyz, feat, config):
     '''
     Task 2
@@ -177,7 +121,7 @@ def roi_pool(pred, xyz, feat, config):
         config['delta'] extend the bounding box by delta on all sides (in meters)
         config['max_points'] number of points in the final sampled ROI
     '''
-    #pooled_xyz = np.zeros((1,512,3))
+    start = time.time()
     # IMPORTANT N = 100 for pred (boundig boxes) but N  =16384 for xyz (point cloud)
     pooled_xyz = []
     valid_pred = []
@@ -188,7 +132,7 @@ def roi_pool(pred, xyz, feat, config):
     corners = label2corners(pred, config)
     #print("corners shape", corners.shape[0])
     #vectores of shape (nb boxes = 100, 3)
-    #pooled_xyz, pooled_feat, valid_pred = loopBoxes(corners,xyz, pred, feat, max_pointsROI)
+
     ##### Takes 1.2 ms #######
     u =  corners[:,5,:] - corners[:,6,:]
     norm_u = np.linalg.norm(u,axis=1)
@@ -201,18 +145,40 @@ def roi_pool(pred, xyz, feat, config):
     w = w/norm_w[:,None]
     #box_center = (corners[:,6,:] + corners[:,0,:])/2.0
     #####################
+   
+    xmax = np.amax(corners[:,:,0])
+    ymax = np.amax(corners[:,:,1])
+    zmax = np.amax(corners[:,:,2])
+    xmin = np.amin(corners[:,:,0])
+    ymin = np.amin(corners[:,:,1])
+    zmin = np.amin(corners[:,:,2])
+    xyz_keep = np.flatnonzero((xyz[:,0] <= xmax) & (xyz[:,1] <= ymax) & (xyz[:,2] <= zmax) &
+                               (xyz[:,0] >= xmin) & (xyz[:,1] >= ymin) & (xyz[:,2] >= zmin) )
+    xyz = xyz[xyz_keep,:]
+    # loop1 = time.time()
+    #xyz_repeat = np.tile(xyz,(corners.shape[0],1,1))
+    # loop2 = time.time()
+    # print("sample", loop2-loop1) 
+    #box_ref = corners[:,6,:].reshape(100,1,3)
+    #center2point = np.subtract(xyz_repeat, box_ref, dtype=np.float32)
+    # print(center2point.shape)
+
+    #center2point = np.zeros((corners.shape[0], xyz.shape[0], xyz.shape[1]))
+    #center2point = pointRectified(xyz,corners,center2point)
+    
     
     for i in range(corners.shape[0]):
         
-        #center2point = xyz - box_center[i,:]
-        center2point = np.array(xyz - corners[i,6,:])
+        #center2point = np.subtract(xyz, box_center[i,:],dtype=np.float32)
+
+        center2point = np.subtract(xyz, corners[i,6,:],dtype=np.float32)
+        
         directions = np.stack((u[i,:], v[i,:], w[i,:]), axis = 1)
-        #start = time.time()
+        #print(directions.shape)
+        #local = directions@(xyz.T)
+        #check points which are not in the box is maybe faster ?
         xyz_indic = indexInBox(directions, center2point, norm_u[i], norm_v[i], norm_w[i])
-        #end = time.time()
-        #print("Find points execution time for conditions is ", end - start)
-        # boxPoints = np.zeros((max_pointsROI,3))
-        # boxFeat= np.zeros((max_pointsROI,feat.shape[1]))
+        
         if 1 < len(xyz_indic) < max_pointsROI:
             idx = np.random.choice(xyz_indic, size=max_pointsROI, replace=True)
             boxPoints = xyz[idx,:]
@@ -222,7 +188,7 @@ def roi_pool(pred, xyz, feat, config):
             idx = np.random.choice(xyz_indic, size=max_pointsROI, replace=False)
             boxPoints = xyz[idx,:]
             boxFeat = feat[idx,:]
-          
+       
         else: # just one point in this box, discard
             continue
         
@@ -231,11 +197,10 @@ def roi_pool(pred, xyz, feat, config):
         pooled_feat.append(boxFeat)
         valid_pred.append(pred[i,:])
         ###########################
-        #xyz = np.delete(xyz, obj = xyz_indic, axis = 0)
-        
     pooled_xyz = np.array(pooled_xyz)
     pooled_feat = np.array(pooled_feat)
     valid_pred = np.array(valid_pred)
+
     #print("valid pred shape", valid_pred.shape)
     # print("pooled_xyz shape", pooled_xyz.shape)
     # print("pooled_feat shape", pooled_feat.shape)
