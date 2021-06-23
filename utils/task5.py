@@ -16,29 +16,25 @@ def nms(pred, score, threshold):
         s_f (M,7) 3D bounding boxes after NMS
         c_f (M,1) corresopnding confidence scores
     '''
-    pred_bev = pred.copy()
-    pred_bev[:,1] =0 # set height to zero
-    pred_bev[:,3] = 1
-    s_f = []
-    c_f = []
-    #print(pred_bev)
-    # threshold = threshold + 0.0926
-    # print(threshold)
+    pred_bev = pred.copy() #copy of prediction for BEV
+    pred_bev[:,1] =0 # set y to zero (all points projected to the ground)
+    pred_bev[:,3] = 1 #set height to 1
+    #Final Set
+    s_f = np.empty((0,7))
+    c_f = np.empty((0,1))
+
     while pred.shape[0] > 0:
-        print("pred shape",pred.shape[0])
+        # find max confidence score
         idx_max_score = np.argmax(score)
-        s_f.append(pred[idx_max_score,:])
-        c_f.append(score[idx_max_score])
+        s_f = np.append(s_f, pred[idx_max_score,:].reshape(-1,7),axis=0)
+        c_f = np.append(c_f,score[idx_max_score].reshape(-1,1),axis=0)
+        # discard elements with IoU > threshold
         IoU = get_iou(pred_bev,pred_bev)
         flag = IoU[idx_max_score,:] < threshold
-        #print(np.min(IoU))
         indices = np.flatnonzero(flag)
-        print(indices)
         pred = pred[indices,:]
         pred_bev = pred_bev[indices,:]
         score = score[indices]
-    s_f = np.array(s_f)
-    c_f = np.array(c_f)
-    print("real",s_f)
+        
     return s_f, c_f
     

@@ -1,83 +1,27 @@
 import numpy as np
 import time
-from numba import njit
-from timeit import timeit
+#from numba import njit
+from utils.task1 import label2corners
 #==================================#
 # Rotation Matrix
 #==================================#
 
-def z_rotation(theta):
+def y_rotation(theta):
     """
-    Rotation about the -z-axis. 
+    Rotation about the y-axis. 
     (y in cam0 coordinates)
     """
-    c = np.cos(-theta)
-    s = np.sin(-theta) 
+    c = np.cos(theta)
+    s = np.sin(theta) 
 
-    Rot = np.array([[c, -s, 0],
-                     [s, c, 0],
-                     [0, 0, 1]])              
+    Rot = np.array([[c, 0, s],
+                     [0, 1, 0],
+                     [-s, 0, c]])              
     return Rot
-
-def label2corners(label, config):
-    '''
-    Task 1
-    input
-        label (N,7) 3D bounding box with (x,y,z,h,w,l,ry)
-    output
-        corners (N,8,3) corner coordinates in the rectified reference frame
-
-        (8, 3) array of vertices for the 3D box in
-        following order:
-            1 -------- 0
-           /|         /|
-          2 -------- 3 .
-          | |        | |
-          . 5 -------- 4
-          |/         |/
-          6 -------- 7
-
-    '''
-    corners = np.zeros((label.shape[0],8,3))
-    #start = time.time()
-    for i in range(label.shape[0]):
-        # extract the dimensions of the box
-        height = label[i,3] + config['delta']
-        width = label[i,4] + config['delta']
-        length = label[i,5] + config['delta']
-        #center coordinates
-        x =  label[i,0]
-        y =  label[i,1]
-        z =  label[i,2]
-
-        # Corners location 3D in velodyne frame
-        '''
-        corners_x = [x+width/2, x-width/2, x-width/2, x+width/2,x+width/2, x-width/2, x-width/2, x+width/2]
-        corners_y = [y+length/2, y+length/2, y-length/2, y-length/2, y+length/2, y+length/2, y-length/2, y-length/2]
-        corners_z = [z+height, z+height, z+height, z+height, z, z, z, z]
-        '''
-        corners_x = [width/2,- width/2, -width/2, width/2, width/2, -width/2, -width/2, width/2]
-        corners_y = [length/2, length/2, -length/2, -length/2, length/2, length/2, -length/2, -length/2]
-        corners_z = [height, height, height, height, 0, 0, 0, 0]
-        #Rotation around z-axis
-        Rot = z_rotation(label[i,6])
-
-        box_dim = Rot@np.vstack([corners_x, corners_y, corners_z])
-        box_dim[0,:] += x
-        box_dim[1,:] += y
-        box_dim[2,:] += z
-        # Dimensions of box_dim: 3 x 8 i.e. rows are (x,y,z) and columns are the corners
-        corners[i,:,:] = np.transpose(box_dim) 
-    #end = time.time()
-    #print("time in the label2corners function is " , end-start)
-    return corners 
 
 #@njit
 def points_in_box(projection, norm_u, norm_v, norm_w):
     '''
-    input
-        xyz (N,3) point coordinates in rectified reference frame
-        box (7,) 3d bounding box label (x,y,z,h,w,l,ry)
     output
         flag (N,) bool vector: true if point is in bounding box
     '''
@@ -113,10 +57,15 @@ def indexInBox(xyz, corners, max_points):
             valid.append(i)
         else: # just one point in this box, discard
             continue
-    #valid_indices = valid_indices[np.all(valid_indices==0,axis=1)]   
+    
+    #valid_indices = valid_indices[~np.all(valid_indices==0,axis=1)]  
+    #print(valid_indices.shape) 
     return valid_indices[valid,:], valid
+    #return valid_indices, valid
 
-
+def enlargeBox(label, delta):
+    label[:,(3,4,5)] += delta
+    return label
     
 #@njit
 def roi_pool(pred, xyz, feat, config):
@@ -149,7 +98,8 @@ def roi_pool(pred, xyz, feat, config):
     # IMPORTANT N = 100 for pred (boundig boxes) but N  =16384 for xyz (point cloud)
     #https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
     #print("N is equal", pred.shape[0])
-    corners = label2corners(pred, config)
+    #pred[:,(3,4,5)] += config['delta']
+    corners = label2corners(enlargeBox(pred.copy(),config['delta']))
   
     xmax = np.amax(corners[:,:,0])
     ymax = np.amax(corners[:,:,1])
@@ -157,12 +107,12 @@ def roi_pool(pred, xyz, feat, config):
     xmin = np.amin(corners[:,:,0])
     ymin = np.amin(corners[:,:,1])
     zmin = np.amin(corners[:,:,2])
+    # Filter points that will not be in the biggest bbox encircling all bbox
     xyz_keep = np.flatnonzero((xyz[:,0] <= xmax) & (xyz[:,1] <= ymax) & (xyz[:,2] <= zmax) &
                                (xyz[:,0] >= xmin) & (xyz[:,1] >= ymin) & (xyz[:,2] >= zmin) )
     xyz = xyz[xyz_keep,:]
     feat = feat[xyz_keep,:]
     
-    start = time.time()
     valid_indices, valid = indexInBox(xyz, corners, config['max_points'])
     pooled_xyz = np.zeros((len(valid),config['max_points'],xyz.shape[1]))
     pooled_feat = np.zeros((len(valid),config['max_points'],128))
@@ -178,9 +128,9 @@ def roi_pool(pred, xyz, feat, config):
     # comparison_feat = (pooled_feat1==pooled_feat)
     # print("pooled xyz equal ?", comparison_xyz.all())
     # print("pooled feat equal ?", comparison_feat.all())
-    print(pooled_xyz)
     
-    print("valid pred shape", valid_pred.shape)
-    print("pooled_xyz shape", pooled_xyz.shape)
-    print("pooled_feat shape", pooled_feat.shape)
+    
+    # print("valid pred shape", valid_pred.shape)
+    # print("pooled_xyz shape", pooled_xyz.shape)
+    # print("pooled_feat shape", pooled_feat.shape)
     return valid_pred, pooled_xyz, pooled_feat
