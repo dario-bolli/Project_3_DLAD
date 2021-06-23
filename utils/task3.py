@@ -72,10 +72,10 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
 
     ###Task b
     nb_fill = 64
-    pred_ind = np.arrange(0,pred.shape[0]+1,1)
+    pred_ind = np.arange(0,pred.shape[0]+1,1)
     print("pred_ind length: ",len(pred_ind))
 
-    indices = np.zeros(64)
+    indices = np.zeros(64, dtype = int)
     foreground_index = []
     easy_background_index = []
     hard_background_index = []
@@ -184,6 +184,7 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
             else: 
                 indexes[foreground_len+hard_ratio:] = np.random.choice(easy_bgrd, size=easy_ratio, replace=True)
     '''
+    print("indices type", indices.dtype)
     xyz = np.take(xyz, indices, axis=0)
     assigned_targets = np.take(assigned_targets, indices, axis=0)
     feat = np.take(feat, indices, axis=0)
