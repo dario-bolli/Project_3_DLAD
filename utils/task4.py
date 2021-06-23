@@ -17,21 +17,17 @@ class RegressionLoss(nn.Module):
         IoU ≥ 0.55 to determine positive samples and alter the RegressionLoss
         module such that only positive samples contribute to the loss.
         input
-            pred (N,7) predicted bounding boxes
+            pred (N,1) predicted bounding boxes
             target (N,7) target bounding boxes
             iou (N,) initial IoU of all paired proposal-targets
         useful config hyperparameters
             self.config['positive_reg_lb'] lower bound for positive samples
         '''
         index = []
-        print("pred_size: ", pred.shape)
-        print("target_size: ", target.shape)
-        print("iou_size: ", iou.shape)
         for i in range(pred.shape[0]):
             #positive samples
             if iou[i] < self.config['positive_reg_lb']:  #self.config['positive_reg_lb'] instead of 0.55
                 index = np.append(index,i)
-        print("index",index.shape)
         if index.size == 0:
             loss = 0
         else:
@@ -39,10 +35,14 @@ class RegressionLoss(nn.Module):
             filtered_pred= np.delete(pred,index,axis=0)#filtered_pred.append(pred[i,:])
             filtered_target = np.delete(target,index,axis=0)#filtered_target.append(target[i,:]) 
             #contribution of size parameters (3 times h,w,l in the average)
-            filtered_pred = torch.hstack((filtered_pred, filtered_pred[:,3:6], filtered_pred[:,3:6]))
-            filtered_target = torch.hstack((filtered_target, filtered_target[:,3:6],filtered_target[:,3:6]))      
-            print("filtered_pred shape", filtered_pred.shape)
-            loss = self.loss(filtered_pred, filtered_target)
+            #filtered_pred = torch.hstack((filtered_pred, filtered_pred[:,3:6], filtered_pred[:,3:6]))
+            #filtered_target = torch.hstack((filtered_target, filtered_target[:,3:6],filtered_target[:,3:6]))      
+            
+            l_location = self.loss(filtered_pred[:,0:3], filtered_target[:,0:3])
+            l_size = self.loss(filtered_pred[:,3:6], filtered_target[:,3:6])
+            l_rotation = self.loss(filtered_pred[:,6], filtered_target[:,6])
+
+            loss = l_location + 3*l_size + l_rotation
         return loss
 
 class ClassificationLoss(nn.Module):
@@ -50,6 +50,7 @@ class ClassificationLoss(nn.Module):
         super().__init__()
         self.config = config
         self.loss = nn.BCELoss()
+        self.m = nn.Sigmoid()
 
     def forward(self, pred, iou):
         '''
@@ -59,7 +60,7 @@ class ClassificationLoss(nn.Module):
         avoid incorrect training signals to supervise our network.  A proposal
         is considered as positive (class 1) if its maximum IoU with ground
         truth boxes is ≥ 0.6, and negative (class 0) if its maximum IoU ≤ 0.45.
-            pred (N,7) predicted bounding boxes
+            pred (N,1) predicted bounding boxes
             iou (N,) initial IoU of all paired proposal-targets
         useful config hyperparameters
             self.config['positive_cls_lb'] lower bound for positive samples
@@ -68,24 +69,25 @@ class ClassificationLoss(nn.Module):
         
         index_p = []
         index_n = []
-        print("pred_size: ", pred.shape)
-        print("target_size: ", target.shape)
-        print("iou_size: ", iou.shape)
+
         for i in range(pred.shape[0]):
             #positive samples
-            if iou[i] >= self.config['positive_cls_lb']:  
+            if iou[i] < self.config['positive_cls_lb']:  
                 index_p = np.append(index_p,i)
-            elif iou[i] >= self.config['negative_cls_ub']:
+            if iou[i] > self.config['negative_cls_ub']:
                 index_n = np.append(index_n,i)
-        print("index",index_p.shape, index_n.shape)
-        index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete), but why is it not int at first?
+
+        index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete)
         index_n = [int(i) for i in index_n]
+
         filtered_pred_p= np.delete(pred,index_p,axis=0)
-        filtered_target_p = np.delete(target,index_p,axis=0)
-
         filtered_pred_n= np.delete(pred,index_n,axis=0)
-        filtered_target_n = np.delete(target,index_n,axis=0)
 
-        #How does BCELoss work with positive and negative samples
-        loss = self.loss(filtered_pred_p, filtered_target_p)
+        label_n = np.zeros(filtered_pred_n.shape[0], dtype = np.float32).reshape(-1,1)
+        label_p = np.ones(filtered_pred_p.shape[0], dtype = np.float32).reshape(-1,1)
+        
+        label = np.vstack((label_n,label_p))
+        filtered_pred = np.vstack((filtered_pred_n,filtered_pred_p))
+        
+        loss = self.loss(torch.from_numpy(filtered_pred), torch.from_numpy(label))
         return loss
