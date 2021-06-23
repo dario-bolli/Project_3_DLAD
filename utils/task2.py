@@ -2,22 +2,6 @@ import numpy as np
 import time
 #from numba import njit
 from utils.task1 import label2corners
-#==================================#
-# Rotation Matrix
-#==================================#
-
-def y_rotation(theta):
-    """
-    Rotation about the y-axis. 
-    (y in cam0 coordinates)
-    """
-    c = np.cos(theta)
-    s = np.sin(theta) 
-
-    Rot = np.array([[c, 0, s],
-                     [0, 1, 0],
-                     [-s, 0, c]])              
-    return Rot
 
 #@njit
 def points_in_box(projection, norm_u, norm_v, norm_w):
