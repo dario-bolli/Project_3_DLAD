@@ -66,15 +66,14 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
     assigned_targets = np.zeros((pred.shape))
     assigned_IoU = np.zeros(pred.shape[0])
     for i in range(pred.shape[0]):
-        ind = np.argmax(IoU[i,:])
-        assigned_targets[i,:] = target(ind)
+        ind = np.int(np.argmax(IoU[i,:]))
+        assigned_targets[i,:] = target[ind]
         assigned_IoU[i] = IoU[i,ind]
 
     ###Task b
     nb_fill = 64
     pred_ind = np.arrange(0,pred.shape[0]+1,1)
     print("pred_ind length: ",len(pred_ind))
-    indexes = np.zeros(64)
 
     indices = np.zeros(64)
     foreground_index = []
