@@ -23,27 +23,29 @@ class RegressionLoss(nn.Module):
         useful config hyperparameters
             self.config['positive_reg_lb'] lower bound for positive samples
         '''
+        if torch.cuda.is_available():
+            device=torch.device("cuda:0")
+        else:
+            device=torch.device("cpu")
         index = []
         for i in range(pred.shape[0]):
             #positive samples
-            if iou[i] < self.config['positive_reg_lb']:  #self.config['positive_reg_lb'] instead of 0.55
-                index = np.append(index,i)
+            if iou[i] >= self.config['positive_reg_lb']:  #self.config['positive_reg_lb'] instead of 0.55
+                index = np.append(index,int(i))
         if index.size == 0:
             loss = 0
         else:
-            index = [int(i) for i in index]     #convert indices to int (only type accepted in delete), but why is it not int at first?
-            filtered_pred= np.delete(pred,index,axis=0)#filtered_pred.append(pred[i,:])
-            filtered_target = np.delete(target,index,axis=0)#filtered_target.append(target[i,:]) 
-            #contribution of size parameters (3 times h,w,l in the average)
-            #filtered_pred = torch.hstack((filtered_pred, filtered_pred[:,3:6], filtered_pred[:,3:6]))
-            #filtered_target = torch.hstack((filtered_target, filtered_target[:,3:6],filtered_target[:,3:6]))      
+            #index = [int(i) for i in index]     #convert indices to int (only type accepted in delete), but why is it not int at first?
+            
+            filtered_pred= pred[index].to(device) #np.delete(pred,index,axis=0)
+            filtered_target = target[index].to(device) #np.delete(target,index,axis=0)    
             
             l_location = self.loss(filtered_pred[:,0:3], filtered_target[:,0:3])
             l_size = self.loss(filtered_pred[:,3:6], filtered_target[:,3:6])
             l_rotation = self.loss(filtered_pred[:,6], filtered_target[:,6])
 
             loss = l_location + 3*l_size + l_rotation
-        return loss
+        return loss.to(device)
 
 class ClassificationLoss(nn.Module):
     def __init__(self, config):
@@ -66,28 +68,32 @@ class ClassificationLoss(nn.Module):
             self.config['positive_cls_lb'] lower bound for positive samples
             self.config['negative_cls_ub'] upper bound for negative samples
         '''
-        
+        if torch.cuda.is_available():
+            device=torch.device("cuda:0")
+        else:
+            device=torch.device("cpu")
+
         index_p = []
         index_n = []
 
         for i in range(pred.shape[0]):
             #positive samples
-            if iou[i] < self.config['positive_cls_lb']:  
-                index_p = np.append(index_p,i)
-            if iou[i] > self.config['negative_cls_ub']:
-                index_n = np.append(index_n,i)
+            if iou[i] >= self.config['positive_cls_lb']:  
+                index_p = np.append(index_p,int(i))
+            if iou[i] <= self.config['negative_cls_ub']:
+                index_n = np.append(index_n,int(i))
 
-        index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete)
-        index_n = [int(i) for i in index_n]
+        #index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete)
+        #index_n = [int(i) for i in index_n]
 
-        filtered_pred_p= np.delete(pred,index_p,axis=0)
-        filtered_pred_n= np.delete(pred,index_n,axis=0)
+        filtered_pred_p= pred[index_p].to(device) #np.delete(pred,index_p,axis=0)
+        filtered_pred_n= pred[index_n].to(device) #np.delete(pred,index_n,axis=0)
 
         label_n = np.zeros(filtered_pred_n.shape[0], dtype = np.float32).reshape(-1,1)
         label_p = np.ones(filtered_pred_p.shape[0], dtype = np.float32).reshape(-1,1)
         
         label = np.vstack((label_n,label_p))
-        filtered_pred = np.vstack((filtered_pred_n,filtered_pred_p))
+        filtered_pred = torch.vstack((filtered_pred_n,filtered_pred_p)).to(device)
         
-        loss = self.loss(torch.from_numpy(filtered_pred), torch.from_numpy(label))
-        return loss
+        loss = self.loss(filtered_pred, torch.from_numpy(label).to(device))
+        return loss.to(device)
