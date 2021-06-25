@@ -29,6 +29,7 @@ def background_sampling(easy_background_index, hard_background_index, indices, s
             indices[start+split1:stop] = np.random.choice(easy_background_index, size=split2, replace=False)
         else:
             indices[start+split1:stop] = np.random.choice(easy_background_index, size=split2, replace=True)
+    return indices[start:]
 
 def sample_proposals(pred, target, xyz, feat, config, train=False):
     '''
@@ -73,7 +74,6 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
     ###Task b
     nb_fill = 64
     pred_ind = np.arange(0,pred.shape[0]+1,1)
-    print("pred_ind length: ",len(pred_ind))
 
     indices = np.zeros(64, dtype = int)
     foreground_index = []
@@ -107,87 +107,18 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
         indices = background_sampling(easy_background_index, hard_background_index, indices, 0, 64)
     #foregrounds and backgrounds
     else:
-        if len(foreground_index)>=nb_fill/2:
-            indices[0:nb_fill/2] = np.random.choice(foreground_index, size=nb_fill/2, replace=False)
-            indices[nb_fill/2:] = background_sampling(easy_background_index, hard_background_index, indices, 32, 64)
+        div = int(nb_fill/2)
+        if len(foreground_index)>=div:
+            indices[0:div] = np.random.choice(foreground_index, size=div, replace=False)
+            indices[div:] = background_sampling(easy_background_index, hard_background_index, indices, div, nb_fill)
         else:
             split = len(foreground_index)
             indices[0:split] = np.random.choice(foreground_index, size=split, replace=False)
-            indices[split:] = background_sampling(easy_background_index, hard_background_index, indices, split, 64)
-    '''
-    foreground = []
-    background = []
-    easy_bgrd = []
-    hard_bgrd = []
-    #only background
-    if all(i < 0.45 for i in assigned_IoU):
-        #only easy background or only hard background
-        if all(i < 0.05 for i in assigned_IoU) or all(i >= 0.05 for i in assigned_IoU):
-            indexes = np.random.choice(pred_ind, size=nb_fill/2, replace=False)
-        #easy and hard background
-        else:
-            for i in range(pred_ind[i]):
-                if assigned_IoU < 0.05: 
-                    easy_bgrd = np.append(easy_bgrd, pred_ind[i])
-                else:
-                    hard_bgrd = np.append(hard_bgrd, pred_ind[i])
-            if len(easy_bgrd) >= 32:
-                indexes[0:32] = np.random.choice(easy_bgrd, size=nb_fill/2, replace=False)
-            else:
-                indexes[0:32] = np.random.choice(easy_bgrd, size=nb_fill/2, replace=True)
-            if len(hard_bgrd) >= 32:
-                indexes[32:] = np.random.choice(easy_bgrd, size=nb_fill/2, replace=False)
-            else: 
-                indexes[32:] = np.random.choice(easy_bgrd, size=nb_fill/2, replace=True)
-    #only foreground
-    elif all(i >= 0.55 for i in assigned_IoU):
-        indexes = np.random.choice(pred_ind, size=nb_fill/2, replace=False)
-
-
-    #foreground and background
-    else:
-        for i in range(pred_ind[i]):
-            if assigned_IoU < 0.45: 
-                background = np.append(background, pred_ind[i])
-            elif assigned_IoU[i] >= 0.55:
-                foreground = np.append(foreground, pred_ind[i])
-        if len(foreground) <= 32:
-            foreground_len = len(foreground)
-        else:
-            foreground_len = 32
-        background_len = 64 - foreground_len
-        #foreground sampling
-        indexes[0:foreground_len] = np.random.choice(foreground, size=foreground_len, replace=False)
-        #background sampling
-         #only easy background or only hard background
-        if all(i < 0.05 for i in assigned_IoU) or all(i >= 0.05 for i in assigned_IoU):
-            if len(background) >= background_len:
-                indexes[foreground_len:] = np.random.choice(background, size=background_len, replace=False)
-            else: 
-                indexes[foreground_len:] = np.random.choice(background, size=background_len, replace=True)
-        #easy and hard background
-        else:
-            #if odd number of backgrounds
-            hard_ratio = int((64-foreground_len)/2)
-            easy_ratio = 64-foreground_len-hard_ratio
-            for i in range(pred_ind[i]):
-                if assigned_IoU < 0.05: 
-                    easy_bgrd = np.append(easy_bgrd, background)
-                else:
-                    hard_bgrd = np.append(hard_bgrd, background)
-            if len(hard_bgrd) >= hard_ratio:
-                indexes[foreground_len:foreground_len+hard_ratio] = np.random.choice(hard_bgrd, size=hard_ratio, replace=False)
-            else:
-                indexes[foreground_len:foreground_len+hard_ratio] = np.random.choice(hard_bgrd, hard_ratio, replace=True)
-            if len(hard_bgrd) >= easy_ratio:
-                indexes[foreground_len+hard_ratio:] = np.random.choice(easy_bgrd, size=easy_ratio, replace=False)
-            else: 
-                indexes[foreground_len+hard_ratio:] = np.random.choice(easy_bgrd, size=easy_ratio, replace=True)
-    '''
-    print("indices type", indices.dtype)
+            indices[split:] = background_sampling(easy_background_index, hard_background_index, indices, split, nb_fill)
+   
     xyz = np.take(xyz, indices, axis=0)
     assigned_targets = np.take(assigned_targets, indices, axis=0)
     feat = np.take(feat, indices, axis=0)
     assigned_IoU = np.take(assigned_IoU, indices, axis=0)
 
-    return xyz, assigned_targets, feat, assigned_IoU
+    return assigned_targets, xyz, feat, assigned_IoU
