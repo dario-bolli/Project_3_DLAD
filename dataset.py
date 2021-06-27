@@ -46,7 +46,10 @@ class DatasetLoader(Dataset):
         sampled_frame = {
             'input': np.concatenate((xyz, feat),-1),
             'assinged_target': assinged_target,
-            'iou': iou
+            'iou': iou,
+            'pooled_xyz': pooled_xyz,
+            'valid_pred': valid_pred,
+            'xyz': xyz
         }
         if self.split == 'train':
             return sampled_frame
