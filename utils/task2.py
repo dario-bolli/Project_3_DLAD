@@ -48,7 +48,7 @@ def indexInBox(xyz, corners, max_points):
     #return valid_indices, valid
 
 def enlargeBox(label, delta):
-    label[:,(3,4,5)] += delta
+    label[:,(3,4,5)] += 2*delta
     return label
     
 #@njit
