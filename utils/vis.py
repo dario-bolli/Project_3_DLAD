@@ -33,7 +33,30 @@ def point_scene(points, pred, target, threshold=0.5, name='test'):
                 'boxes': np.array(all_boxes)
            })}
 
-def visualizeTask(points, pred, name='Task_visualization'):
+def visualizeTask_1_2(points, pred, name='Task_visualization'):
+    '''
+    points (N,3) point cloud
+    pred (N,7) predicted bounding boxes (N,1) scores
+    target (N,7) target bounding boxes
+    threshold (float) when to consider a prediction correct
+    '''
+    all_boxes = []
+    if torch.is_tensor(pred):
+        pred = pred.detach().cpu().numpy()
+    if torch.is_tensor(points):
+        points = points.detach().cpu().numpy()
+    for p in enumerate(label2corners(pred)):
+        all_boxes.append({'corners': p.tolist(),
+                          'label': f'{pred}',
+                          'color': [0,255,0]})
+    
+    return {name: wandb.Object3D({
+                'type': 'lidar/beta',
+                'points': points,
+                'boxes': np.array(all_boxes)
+           })}
+
+def visualizeTask_1_3(points, pred, name='Task_visualization'):
     '''
     points (N,3) point cloud
     pred (N,7) predicted bounding boxes (N,1) scores
