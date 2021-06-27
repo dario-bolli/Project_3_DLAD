@@ -63,19 +63,29 @@ class LitModel(pl.LightningModule):
         nms_pred, nms_score = generate_final_predictions(pred_box, pred_class, config['eval'])
         save_detections(os.path.join(self.output_dir, 'pred'), batch['frame'], nms_pred, nms_score)
 
-        # Visualize Task 1.2
-        if batch_idx == 4 or batch_idx == 5 or batch_idx == 6:
-            scene = visualizeTask(batch['points'], batch['valid_pred'], name=f'e{self.current_epoch}, b{batch_idx}')
-            self.logger.experiment[0].log(scene, commit=False)
-
-        if batch_idx == 4:
-            scene = visualizeTask(batch['xyz'], pred_box, name=f'e{self.current_epoch}, b{batch_idx}')
-            self.logger.experiment[0].log(scene, commit=False)
-
         # Visualization
+        
         if batch_idx == 0:
             scene = point_scene(batch['points'], nms_pred, batch['target'], name=f'e{self.current_epoch}')
             self.logger.experiment[0].log(scene, commit=False)
+
+        # Visualize Task 1.2
+        if batch_idx == 4:
+            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        if batch_idx == 50:
+            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        if batch_idx == 100:
+            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        
+        # Visualization Task 1.3
+        if batch_idx == 5:
+            scene = visualizeTask(batch['xyz'], pred_box, name=f'e{self.current_epoch}, b1.3_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        
+        
 
     def validation_epoch_end(self, outputs):
         easy, moderate, hard = compute_map(self.valid_dataset.hf,
