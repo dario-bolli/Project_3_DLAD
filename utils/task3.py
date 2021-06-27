@@ -68,12 +68,20 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
     assigned_IoU = np.zeros(pred.shape[0])
     for i in range(pred.shape[0]):
         ind = np.int(np.argmax(IoU[i,:]))
+<<<<<<< HEAD
+        assigned_targets[i,:] = target[ind,:]
+=======
         assigned_targets[i,:] = target[ind]
+>>>>>>> 8376a4dee244fc5c30cf59144522da220e6b1749
         assigned_IoU[i] = IoU[i,ind]
 
     ###Task b
     nb_fill = 64
+<<<<<<< HEAD
+    #pred_ind = np.arange(0,pred.shape[0]+1,1)
+=======
     pred_ind = np.arange(0,pred.shape[0]+1,1)
+>>>>>>> 8376a4dee244fc5c30cf59144522da220e6b1749
 
     indices = np.zeros(64, dtype = int)
     foreground_index = []
@@ -104,7 +112,11 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
             indices = np.random.choice(foreground_index, size=nb_fill, replace=True)
     #no foreground proposals            
     elif not foreground_index:
+<<<<<<< HEAD
+        indices = background_sampling(easy_background_index, hard_background_index, indices, 0, nb_fill)
+=======
         indices = background_sampling(easy_background_index, hard_background_index, indices, 0, 64)
+>>>>>>> 8376a4dee244fc5c30cf59144522da220e6b1749
     #foregrounds and backgrounds
     else:
         div = int(nb_fill/2)
