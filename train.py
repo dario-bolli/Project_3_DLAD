@@ -25,7 +25,7 @@ from dataset import DatasetLoader
 
 from utils.task4 import RegressionLoss, ClassificationLoss
 from utils.eval import generate_final_predictions, save_detections, generate_submission, compute_map
-from utils.vis import point_scene
+from utils.vis import point_scene, visualizeTask
 
 from aws_start_instance import build_ssh_cmd, build_rsync_cmd
 
@@ -62,6 +62,15 @@ class LitModel(pl.LightningModule):
 
         nms_pred, nms_score = generate_final_predictions(pred_box, pred_class, config['eval'])
         save_detections(os.path.join(self.output_dir, 'pred'), batch['frame'], nms_pred, nms_score)
+
+        # Visualize Task 1.2
+        if batch_idx == 4 or batch_idx == 5 or batch_idx == 6:
+            scene = visualizeTask(batch['points'], batch['valid_pred'], name=f'e{self.current_epoch}, b{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+
+        if batch_idx == 4:
+            scene = visualizeTask(batch['xyz'], pred_box, name=f'e{self.current_epoch}, b{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
 
         # Visualization
         if batch_idx == 0:
