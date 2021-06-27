@@ -25,7 +25,7 @@ from dataset import DatasetLoader
 
 from utils.task4 import RegressionLoss, ClassificationLoss
 from utils.eval import generate_final_predictions, save_detections, generate_submission, compute_map
-from utils.vis import point_scene, visualizeTask
+from utils.vis import point_scene, visualizeTask_1_2, visualizeTask_1_3
 
 from aws_start_instance import build_ssh_cmd, build_rsync_cmd
 
@@ -71,18 +71,18 @@ class LitModel(pl.LightningModule):
 
         # Visualize Task 1.2
         if batch_idx == 4:
-            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         if batch_idx == 50:
-            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         if batch_idx == 100:
-            scene = visualizeTask(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         
         # Visualization Task 1.3
         if batch_idx == 5:
-            scene = visualizeTask(batch['xyz'], pred_box, name=f'e{self.current_epoch}, b1.3_{batch_idx}')
+            scene = visualizeTask_1_3(batch['xyz'], pred_box, name=f'e{self.current_epoch}, b1.3_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         
         
