@@ -45,7 +45,7 @@ def label2corners(label):
         
         # Corners location 3D in camera0 frame
         corners_x = [length/2,-length/2, -length/2, length/2, length/2, -length/2, -length/2, length/2]
-        corners_y = [height, height, height, height, 0, 0, 0, 0]
+        corners_y = [-height, -height, -height, -height, 0, 0, 0, 0]
         corners_z = [width/2, width/2, -width/2, -width/2, width/2, width/2, -width/2, -width/2]
         
         #Rotation around y-axis
@@ -58,7 +58,7 @@ def label2corners(label):
         # Dimensions of box_dim: 3 x 8 i.e. rows are (x,y,z) and columns are the corners
         corners[i,:,:] = np.transpose(box_dim)   
     return corners
-
+    
 def get_volume(box):
     #box dimension (N,7)
     corners = label2corners(box)
