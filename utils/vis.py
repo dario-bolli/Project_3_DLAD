@@ -69,9 +69,9 @@ def visualizeTask_1_3(points, pred, name='Task_visualization'):
     if torch.is_tensor(points):
         points = points.detach().cpu().numpy()
     for i, p in enumerate(label2corners(pred)):
-        all_boxes.append({'corners': p.tolist(),
-                          'label': f'{pred[i,:]}',
-                          'color': [0,255,0]})
+            all_boxes.append({'corners': p.tolist(),
+                            'label': '',
+                            'color': [0,255,0]})
     
     return {name: wandb.Object3D({
                 'type': 'lidar/beta',
