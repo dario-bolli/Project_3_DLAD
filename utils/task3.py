@@ -72,7 +72,6 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
         assigned_IoU[i] = IoU[i,ind]
 
     ###Task b
-    nb_fill = 64
     #pred_ind = np.arange(0,pred.shape[0]+1,1)
 
     indices = np.zeros(64, dtype = int)
@@ -86,35 +85,34 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
     #foreground and background regarding IoU
     for i in range(pred.shape[0]):
         #background
-        if assigned_IoU[i] < 0.45:
-            if assigned_IoU[i] < 0.05:
+        if assigned_IoU[i] < config['t_bg_up']:
+            if assigned_IoU[i] < config['t_bg_hard_lb']:
                 easy_background_index.append(i)
             else:
                 hard_background_index.append(i)
         #foreground
-        elif assigned_IoU[i] >= 0.55:
+        elif assigned_IoU[i] >= config['t_fg_lb']:
             if i not in foreground_index:
                 foreground_index.append(i)
     
     #no background proposals          (not == len(..)=0)
     if not easy_background_index and not hard_background_index:
-        if len(foreground_index)>=nb_fill:
-            indices = np.random.choice(foreground_index, size=nb_fill, replace=False)
+        if len(foreground_index)>=config['num_samples']:
+            indices = np.random.choice(foreground_index, size=config['num_samples'], replace=False)
         else:
-            indices = np.random.choice(foreground_index, size=nb_fill, replace=True)
+            indices = np.random.choice(foreground_index, size=config['num_samples'], replace=True)
     #no foreground proposals            
     elif not foreground_index:
-        indices = background_sampling(easy_background_index, hard_background_index, indices, 0, nb_fill)
+        indices = background_sampling(easy_background_index, hard_background_index, indices, 0, config['num_samples'])
     #foregrounds and backgrounds
     else:
-        div = int(nb_fill/2)
-        if len(foreground_index)>=div:
-            indices[0:div] = np.random.choice(foreground_index, size=div, replace=False)
-            indices[div:] = background_sampling(easy_background_index, hard_background_index, indices, div, nb_fill)
+        if len(foreground_index)>=config['num_fg_sample']:
+            indices[0:config['num_fg_sample']] = np.random.choice(foreground_index, size=config['num_fg_sample'], replace=False)
+            indices[config['num_fg_sample']:] = background_sampling(easy_background_index, hard_background_index, indices, config['num_fg_sample'], nb_fill)
         else:
             split = len(foreground_index)
             indices[0:split] = np.random.choice(foreground_index, size=split, replace=False)
-            indices[split:] = background_sampling(easy_background_index, hard_background_index, indices, split, nb_fill)
+            indices[split:] = background_sampling(easy_background_index, hard_background_index, indices, split, config['num_samples'])
    
     xyz = np.take(xyz, indices, axis=0)
     assigned_targets = np.take(assigned_targets, indices, axis=0)
