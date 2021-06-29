@@ -77,13 +77,13 @@ class LitModel(pl.LightningModule):
         
         # Visualize Task 1.2
         if batch_idx == 4:
-            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         if batch_idx == 50:
-            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         if batch_idx == 100:
-            scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
+            scene = visualizeTask_1_2(batch['pooled_xyz'], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
         
         # Visualization Task 1.3
