@@ -9,7 +9,7 @@ def points_in_box(projection, norm_u, norm_v, norm_w):
     output
         flag (N,) bool vector: true if point is in bounding box
     '''
-    flag = (projection[:,2] <= norm_w) & (projection[:,0] <= norm_u) & (projection[:,1] <= norm_v)
+    flag = (2*projection[:,2] <= norm_w) & (2*projection[:,0] <= norm_u) & (2*projection[:,1] <= norm_v)
     return flag
 
 #@njit
@@ -27,7 +27,7 @@ def indexInBox(xyz, corners, max_points):
     valid_indices = np.zeros((corners.shape[0],max_points),dtype=int)
     for i in range(corners.shape[0]):
         directions = np.stack((u[i,:], v[i,:], w[i,:]), axis = 1)   
-        center2point = np.subtract(xyz, corners[i,6,:],dtype=np.float32)
+        center2point = np.subtract(xyz, (corners[i,6,:]+corners[i,0,:])/2,dtype=np.float32)
         projection = np.absolute(np.matmul(center2point,directions,dtype=np.float32) )
         xyz_indic = np.flatnonzero(points_in_box(projection, norm_u[i], norm_v[i], norm_w[i]))
     
@@ -48,7 +48,8 @@ def indexInBox(xyz, corners, max_points):
     #return valid_indices, valid
 
 def enlargeBox(label, delta):
-    label[:,(3,4,5)] += 2*delta
+    label[:,(4,5)] += 2*delta
+    label[:,3] += delta
     return label
     
 #@njit
