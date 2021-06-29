@@ -108,7 +108,7 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
     else:
         if len(foreground_index)>=config['num_fg_sample']:
             indices[0:config['num_fg_sample']] = np.random.choice(foreground_index, size=config['num_fg_sample'], replace=False)
-            indices[config['num_fg_sample']:] = background_sampling(easy_background_index, hard_background_index, indices, config['num_fg_sample'], nb_fill)
+            indices[config['num_fg_sample']:] = background_sampling(easy_background_index, hard_background_index, indices, config['num_fg_sample'], config['num_samples'])
         else:
             split = len(foreground_index)
             indices[0:split] = np.random.choice(foreground_index, size=split, replace=False)
