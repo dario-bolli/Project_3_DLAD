@@ -66,9 +66,15 @@ class LitModel(pl.LightningModule):
         # Visualization
         
         if batch_idx == 0:
-            scene = point_scene(batch['points'], nms_pred, batch['target'], name=f'e{self.current_epoch}')
+            scene = point_scene(batch['points'], nms_pred, batch['target'], name=f'e{self.current_epoch}, s_{batch_idx}')
             self.logger.experiment[0].log(scene, commit=False)
-
+        if batch_idx == 10:
+            scene = point_scene(batch['points'], nms_pred, batch['target'], name=f'e{self.current_epoch}, s_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        if batch_idx == 30:
+            scene = point_scene(batch['points'], nms_pred, batch['target'], name=f'e{self.current_epoch}, s_{batch_idx}')
+            self.logger.experiment[0].log(scene, commit=False)
+        
         # Visualize Task 1.2
         if batch_idx == 4:
             scene = visualizeTask_1_2(batch['pooled_xyz'][0,:,:], batch['valid_pred'][0,:], name=f'e{self.current_epoch}, b1.2_{batch_idx}')
