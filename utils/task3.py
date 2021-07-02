@@ -72,8 +72,6 @@ def sample_proposals(pred, target, xyz, feat, config, train=False):
         assigned_IoU[i] = IoU[i,ind]
 
     ###Task b
-    #pred_ind = np.arange(0,pred.shape[0]+1,1)
-
     indices = np.zeros(64, dtype = int)
     foreground_index = []
     easy_background_index = []
