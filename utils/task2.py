@@ -13,7 +13,7 @@ def points_in_box(projection, norm_u, norm_v, norm_w):
     return flag
 
 #@njit
-def indexInBox(xyz, corners, max_points):
+def indexInBox(xyz, corners, config):
     '''
     input
         xyz (N,3) points in rectified reference frame
@@ -34,19 +34,19 @@ def indexInBox(xyz, corners, max_points):
     norm_w = np.linalg.norm(w,axis=1)
     w = w/norm_w[:,None]
     valid = []
-    valid_indices = np.zeros((corners.shape[0],max_points),dtype=int)
+    valid_indices = np.zeros((corners.shape[0],config['max_points']),dtype=int)
     for i in range(corners.shape[0]):
         directions = np.stack((u[i,:], v[i,:], w[i,:]), axis = 1)   
         center2point = np.subtract(xyz, (corners[i,6,:]+corners[i,0,:])/2,dtype=np.float32)
         projection = np.absolute(np.matmul(center2point,directions,dtype=np.float32) )
         xyz_indic = np.flatnonzero(points_in_box(projection, norm_u[i], norm_v[i], norm_w[i]))
     
-        if 1 < len(xyz_indic) < max_points:
-            idx = np.random.choice(xyz_indic, size=max_points, replace=True)
+        if 1 < len(xyz_indic) < config['max_points']:
+            idx = np.random.choice(xyz_indic, size=config['max_points'], replace=True)
             valid_indices[i,:] = idx
             valid.append(i)
-        elif len(xyz_indic) > max_points:
-            idx = np.random.choice(xyz_indic, size=max_points, replace=False)
+        elif len(xyz_indic) > config['max_points']:
+            idx = np.random.choice(xyz_indic, size=config['max_points'], replace=False)
             valid_indices[i,:] = idx
             valid.append(i)
         else: # just one point in this box, discard
@@ -60,7 +60,7 @@ def enlargeBox(label, delta):
     return label
     
 #@njit
-def roi_pool(pred, xyz, feat, config):
+def roi_pool(pred, xyz, feat, intensity, config):
     '''
     Task 2
     a. Enlarge predicted 3D bounding boxes by delta=1.0 meters in all directions.
@@ -76,6 +76,7 @@ def roi_pool(pred, xyz, feat, config):
         pred (N,7) bounding box labels
         xyz (N,3) point cloud
         feat (N,C) features
+        intensity (N,1) intensity of points
         config (dict) data config
     output
         valid_pred (K',7)
@@ -87,26 +88,32 @@ def roi_pool(pred, xyz, feat, config):
         config['delta'] extend the bounding box by delta on all sides (in meters)
         config['max_points'] number of points in the final sampled ROI
     '''
-    corners = label2corners(enlargeBox(pred.copy(),config['delta']))
-  
-    xmax = np.amax(corners[:,:,0])
-    ymax = np.amax(corners[:,:,1])
-    zmax = np.amax(corners[:,:,2])
-    xmin = np.amin(corners[:,:,0])
-    ymin = np.amin(corners[:,:,1])
-    zmin = np.amin(corners[:,:,2])
+    
+    corners_enlarged = label2corners(enlargeBox(pred.copy(),config['delta']))
+    xmax = np.amax(corners_enlarged[:,:,0])
+    ymax = np.amax(corners_enlarged[:,:,1])
+    zmax = np.amax(corners_enlarged[:,:,2])
+    xmin = np.amin(corners_enlarged[:,:,0])
+    ymin = np.amin(corners_enlarged[:,:,1])
+    zmin = np.amin(corners_enlarged[:,:,2])
     # Filter points that will not be in the biggest bbox encircling all bbox
     xyz_keep = np.flatnonzero((xyz[:,0] <= xmax) & (xyz[:,1] <= ymax) & (xyz[:,2] <= zmax) &
                                (xyz[:,0] >= xmin) & (xyz[:,1] >= ymin) & (xyz[:,2] >= zmin) )
     xyz = xyz[xyz_keep,:]
     feat = feat[xyz_keep,:]
     # get indices satisfying conditions for points in boxes
-    valid_indices, valid = indexInBox(xyz, corners, config['max_points'])
+    valid_indices, valid = indexInBox(xyz, corners_enlarged, config)
     pooled_xyz = np.zeros((len(valid),config['max_points'],xyz.shape[1]))
     pooled_feat = np.zeros((len(valid),config['max_points'],128))
+    foreground_mask = np.zeros((len(valid),config['max_points'],1))
+    intensity_mask = np.zeros((len(valid),config['max_points'],1))
+
     #extract points and features
     pooled_xyz = xyz[valid_indices,:]
     pooled_feat = feat[valid_indices,:]
     valid_pred = pred[valid,:]
- 
-    return valid_pred, pooled_xyz, pooled_feat
+    intensity_mask = intensity[valid_indices,:] # extract the intensities
+    index_smallBox, _ = indexInBox(xyz, label2corners(pred), config)
+    foreground_mask[index_smallBox,:] = 1 # inside the small box (predicted box)
+    
+    return valid_pred, pooled_xyz, pooled_feat, foreground_mask, intensity_mask
