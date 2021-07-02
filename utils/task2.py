@@ -14,6 +14,16 @@ def points_in_box(projection, norm_u, norm_v, norm_w):
 
 #@njit
 def indexInBox(xyz, corners, max_points):
+    '''
+    input
+        xyz (N,3) points in rectified reference frame
+        corners (N',3,8) corner coordinates
+        max_points sampling points number
+    output
+        valid_indices (K',M) indices of points that are in each k' bounding box
+        valid (K') index vector showing valid bounding boxes, i.e. with at least
+                   one point within the box
+    '''
     u =  corners[:,5,:] - corners[:,6,:]
     norm_u = np.linalg.norm(u,axis=1)
     u = u/norm_u[:,None]
@@ -41,11 +51,8 @@ def indexInBox(xyz, corners, max_points):
             valid.append(i)
         else: # just one point in this box, discard
             continue
-    
-    #valid_indices = valid_indices[~np.all(valid_indices==0,axis=1)]  
-    #print(valid_indices.shape) 
     return valid_indices[valid,:], valid
-    #return valid_indices, valid
+
 
 def enlargeBox(label, delta):
     label[:,(4,5)] += 2*delta
@@ -80,10 +87,6 @@ def roi_pool(pred, xyz, feat, config):
         config['delta'] extend the bounding box by delta on all sides (in meters)
         config['max_points'] number of points in the final sampled ROI
     '''
-    # IMPORTANT N = 100 for pred (boundig boxes) but N  =16384 for xyz (point cloud)
-    #https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
-    #print("N is equal", pred.shape[0])
-    #pred[:,(3,4,5)] += config['delta']
     corners = label2corners(enlargeBox(pred.copy(),config['delta']))
   
     xmax = np.amax(corners[:,:,0])
@@ -97,25 +100,13 @@ def roi_pool(pred, xyz, feat, config):
                                (xyz[:,0] >= xmin) & (xyz[:,1] >= ymin) & (xyz[:,2] >= zmin) )
     xyz = xyz[xyz_keep,:]
     feat = feat[xyz_keep,:]
-    
+    # get indices satisfying conditions for points in boxes
     valid_indices, valid = indexInBox(xyz, corners, config['max_points'])
     pooled_xyz = np.zeros((len(valid),config['max_points'],xyz.shape[1]))
     pooled_feat = np.zeros((len(valid),config['max_points'],128))
+    #extract points and features
     pooled_xyz = xyz[valid_indices,:]
     pooled_feat = feat[valid_indices,:]
     valid_pred = pred[valid,:]
-    # pooled_xyz1 = np.zeros((len(valid),config['max_points'],xyz.shape[1]))
-    # pooled_feat1 = np.zeros((len(valid),config['max_points'],128))
-    # for i in range(len(valid)):
-    #     pooled_xyz1[i,:,:] = xyz[valid_indices[i,:],:]
-    #     pooled_feat1[i,:,:] = feat[valid_indices[i,:],:]
-    # comparison_xyz = (pooled_xyz == pooled_xyz1)
-    # comparison_feat = (pooled_feat1==pooled_feat)
-    # print("pooled xyz equal ?", comparison_xyz.all())
-    # print("pooled feat equal ?", comparison_feat.all())
-    
-    
-    # print("valid pred shape", valid_pred.shape)
-    # print("pooled_xyz shape", pooled_xyz.shape)
-    # print("pooled_feat shape", pooled_feat.shape)
+ 
     return valid_pred, pooled_xyz, pooled_feat
