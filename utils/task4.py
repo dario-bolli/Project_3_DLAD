@@ -30,15 +30,13 @@ class RegressionLoss(nn.Module):
         index = []
         for i in range(pred.shape[0]):
             #positive samples
-            if iou[i] >= self.config['positive_reg_lb']:  #self.config['positive_reg_lb'] instead of 0.55
+            if iou[i] >= self.config['positive_reg_lb']:  
                 index = np.append(index,int(i))
         if len(index) == 0:
             loss = torch.zeros(1)
         else:
-            #index = [int(i) for i in index]     #convert indices to int (only type accepted in delete), but why is it not int at first?
-            
-            filtered_pred= pred[index].to(device) #np.delete(pred,index,axis=0)
-            filtered_target = target[index].to(device) #np.delete(target,index,axis=0)    
+            filtered_pred= pred[index].to(device) 
+            filtered_target = target[index].to(device)   
             
             l_location = self.loss(filtered_pred[:,0:3], filtered_target[:,0:3])
             l_size = self.loss(filtered_pred[:,3:6], filtered_target[:,3:6])
@@ -83,13 +81,11 @@ class ClassificationLoss(nn.Module):
             if iou[i] <= self.config['negative_cls_ub']:
                 index_n = np.append(index_n,int(i))
 
-        #index_p = [int(i) for i in index_p]     #convert indices to int (only type accepted in delete)
-        #index_n = [int(i) for i in index_n]
         if len(index_p)==0 and len(index_n) == 0:
             loss = torch.zeros(1)
         else:
-            filtered_pred_p= pred[index_p].to(device) #np.delete(pred,index_p,axis=0)
-            filtered_pred_n= pred[index_n].to(device) #np.delete(pred,index_n,axis=0)
+            filtered_pred_p= pred[index_p].to(device) 
+            filtered_pred_n= pred[index_n].to(device) 
 
             label_n = np.zeros(filtered_pred_n.shape[0], dtype = np.float32).reshape(-1,1)
             label_p = np.ones(filtered_pred_p.shape[0], dtype = np.float32).reshape(-1,1)
