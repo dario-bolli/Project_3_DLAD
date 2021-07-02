@@ -29,10 +29,13 @@ class DatasetLoader(Dataset):
     def __getitem__(self, idx):
         frame = self.frames[idx]
         points = self.get_data(idx, 'xyz')
-        valid_pred, pooled_xyz, pooled_feat = roi_pool(pred=self.get_data(idx, 'detections'),
+        intensity = self.get_data(idx, 'intensity')
+        valid_pred, pooled_xyz, pooled_feat, foreground_mask, intensity_mask = roi_pool(pred=self.get_data(idx, 'detections'),
                                                        xyz=points,
                                                        feat=self.get_data(idx, 'features'),
+                                                       intensity = intensity,
                                                        config=self.config)
+        features_append = np.concatenate((pooled_feat, foreground_mask, intensity_mask),-1)  #append foreground mask and intensity to features                                             
         if self.split == 'test':
             return {'frame': frame, 'input': np.concatenate((pooled_xyz, pooled_feat),-1)}
 
@@ -40,7 +43,7 @@ class DatasetLoader(Dataset):
         assinged_target, xyz, feat, iou = sample_proposals(pred=valid_pred,
                                                            target=target,
                                                            xyz=pooled_xyz,
-                                                           feat=pooled_feat,
+                                                           feat=features_append,
                                                            config=self.config,
                                                            train=self.split=='train')
         sampled_frame = {
