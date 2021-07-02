@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from utils.task1 import label2corners
+from utils.task2 import points_in_box
 
 def points_semseg_in_box(boxes, xyz):
     '''
@@ -20,8 +21,6 @@ def points_semseg_in_box(boxes, xyz):
     w = (corners[:,2,:] - corners[:,6,:])
     norm_w = np.linalg.norm(w,axis=1)
     w = w/norm_w[:,None]
-    valid = []
-    valid_indices = np.zeros((corners.shape[0],max_points),dtype=int)
     xyz_label = np.zeros(xyz.shape[0])
     for i in range(corners.shape[0]):
         directions = np.stack((u[i,:], v[i,:], w[i,:]), axis = 1)   
@@ -34,6 +33,7 @@ def points_semseg_in_box(boxes, xyz):
 
 def focal_loss(target_boxes, pred_boxes, xyz):
     '''
+    add this loss to regression loss and classification loss in the training_step of train.py
     input:
     - point cloud ground truth label
     - point cloud pred label
@@ -52,6 +52,4 @@ def focal_loss(target_boxes, pred_boxes, xyz):
     
     L_f = -alpha_t*(1-p_t)**gamma*torch.log(p_t)
 
-'''
-add this loss to regression loss and classification loss in the training_step of train.py
-'''
+    return L_f
