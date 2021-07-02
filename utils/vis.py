@@ -74,7 +74,7 @@ def visualizeTask_1_3(points, pred, name='Task_visualization'):
         all_boxes.append({'corners': p.tolist(),
                         'label': '',
                         'color': [0,255,0]})
-    print("points xyz shape:",points.shape)
+   
     return {name: wandb.Object3D({
                 'type': 'lidar/beta',
                 'points': points,
